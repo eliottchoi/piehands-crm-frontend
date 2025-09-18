@@ -97,7 +97,10 @@ export const UserFilterBar: React.FC<UserFilterBarProps> = ({
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setIsFilterPanelOpen(true)}
+                onClick={() => {
+                  console.log('🔧 Add Filter button clicked, current state:', isFilterPanelOpen);
+                  setIsFilterPanelOpen(true);
+                }}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Filter

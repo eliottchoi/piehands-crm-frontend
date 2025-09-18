@@ -129,10 +129,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
     onAddFilter(cohortFilter);
   };
 
-  if (!isOpen) {
-    return <>{trigger}</>;
-  }
-
   return (
     <div className="relative">
       {trigger}
@@ -165,7 +161,10 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                     key={eventName}
                     variant="ghost"
                     className="w-full justify-start h-8 text-sm"
-                    onClick={() => handleEventSelect(eventName)}
+                    onClick={() => {
+                      console.log('🔧 Event button clicked:', eventName);
+                      handleEventSelect(eventName);
+                    }}
                   >
                     {eventName}
                   </Button>

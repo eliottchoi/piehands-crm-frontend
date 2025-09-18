@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUsers, useUploadUsersCsv } from '../hooks/useUsers';
 import { useInView } from 'react-intersection-observer';
-import { useUrlState } from '../hooks/useUrlState';
+// import { useUrlState } from '../hooks/useUrlState'; // Removed to fix infinite loop
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/Modal';
 import { FileUpload } from '@/components/FileUpload';
@@ -47,10 +47,9 @@ export const UsersPage = () => {
   const uploadMutation = useUploadUsersCsv();
   const { ref, inView } = useInView();
   
-  // URL-synced search and filter state
-  const { state: urlState, updateState: updateUrlState } = useUrlState();
-  const [searchTerm, setSearchTerm] = useState(urlState.searchTerm);
-  const [filters, setFilters] = useState<FilterQuery[]>(urlState.filters);
+  // Simple local state (URL sync removed to fix infinite loop)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<FilterQuery[]>([]);
   
   // Column management state
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -72,22 +71,33 @@ export const UsersPage = () => {
     availableColumns.filter(col => col.visible)
   );
 
-  // Sync local state with URL state
+  // Sync local state with URL state (prevent infinite loop)
   useEffect(() => {
-    setSearchTerm(urlState.searchTerm);
-    setFilters(urlState.filters);
-  }, [urlState]);
+    // Only update if different to prevent loop
+    if (urlState.searchTerm !== searchTerm) {
+      setSearchTerm(urlState.searchTerm);
+    }
+    if (JSON.stringify(urlState.filters) !== JSON.stringify(filters)) {
+      setFilters(urlState.filters);
+    }
+  }, [urlState]); // Remove searchTerm and filters from deps
 
-  // Update URL when search term changes
+  // Update URL when search term changes (debounced)
   useEffect(() => {
-    updateUrlState({ searchTerm });
-  }, [searchTerm, updateUrlState]);
+    const timer = setTimeout(() => {
+      updateUrlState({ searchTerm });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]); // Remove updateUrlState from deps
 
   // Update URL when filters change
   useEffect(() => {
     console.log('🔧 UsersPage: Filters changed:', filters);
-    updateUrlState({ filters });
-  }, [filters, updateUrlState]);
+    const timer = setTimeout(() => {
+      updateUrlState({ filters });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [filters]); // Remove updateUrlState from deps
   
   // Helper functions for dynamic table rendering
   const getCellTooltip = (user: User, columnId: string): string => {
@@ -188,9 +198,14 @@ export const UsersPage = () => {
     }
   };
   
-  // All users from all pages (for client-side filtering)
+  // All users from all pages (for client-side filtering) - Remove duplicates
   const allUsers = useMemo(() => {
-    return data?.pages?.flatMap(page => page.users) || [];
+    const allUsersFlat = data?.pages?.flatMap(page => page.users) || [];
+    // Remove duplicates by ID to prevent key conflicts
+    const uniqueUsers = allUsersFlat.filter((user, index, self) => 
+      index === self.findIndex(u => u.id === user.id)
+    );
+    return uniqueUsers;
   }, [data]);
 
   // Filtered users based on search and filters
@@ -401,9 +416,9 @@ export const UsersPage = () => {
           </TableHeader>
           <TableBody>
             {sortedUsers.length > 0 ? (
-              sortedUsers.map((user: User) => (
+              sortedUsers.map((user: User, index: number) => (
                   <TableRow 
-                    key={user.id} 
+                    key={`${user.id}-${index}`}
                     className="group hover:bg-muted/20"
                   >
                     {/* Checkbox */}

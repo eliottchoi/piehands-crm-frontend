@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 interface FilterQuery {
@@ -19,7 +19,8 @@ interface FilterState {
 export const useUrlState = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
-  const getStateFromUrl = useCallback((): FilterState => {
+  // Memoize state to prevent unnecessary re-renders
+  const state = useMemo((): FilterState => {
     try {
       const searchTerm = searchParams.get('search') || '';
       const filtersParam = searchParams.get('filters');
@@ -47,6 +48,7 @@ export const useUrlState = () => {
 
   const updateUrlState = useCallback((state: Partial<FilterState>) => {
     const newParams = new URLSearchParams(searchParams);
+    console.log('🔧 useUrlState: updateUrlState called with:', state);
     
     // Update search term
     if (state.searchTerm !== undefined) {
@@ -96,7 +98,7 @@ export const useUrlState = () => {
   }, [searchParams, setSearchParams]);
 
   return {
-    state: getStateFromUrl(),
+    state,
     updateState: updateUrlState
   };
 };
