@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { useEventNames } from '../../hooks/useEvents';
 import { Badge } from '@/components/ui/badge';
 import { EventPropertyFilter } from './EventPropertyFilter';
 // Removed complex DateRangeSelector
@@ -127,21 +128,21 @@ export const EventFilterBuilder: React.FC<EventFilterBuilderProps> = ({
       </Select>
       
       {/* Event Name */}
-      <Select
-        value={filter.eventName}
-        onValueChange={(value) => updateField('eventName', value)}
-      >
-        <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {eventNameOptions.map(eventName => (
-            <SelectItem key={eventName} value={eventName}>
-              {eventName}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select
+          value={filter.eventName}
+          onValueChange={(value) => updateField('eventName', value)}
+        >
+          <SelectTrigger className="w-auto min-w-[140px] h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {eventNames.map((eventName: string) => (
+              <SelectItem key={eventName} value={eventName}>
+                {eventName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       
       {/* Aggregation */}
       <Select

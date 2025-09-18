@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, Users, Target } from 'lucide-react';
+import { Calendar, Users, Target, Loader2 } from 'lucide-react';
+import { useEventNames } from '../hooks/useEvents';
 
 interface FilterQuery {
   id: string;
@@ -18,15 +19,7 @@ interface FilterPanelProps {
   trigger: React.ReactNode;
 }
 
-// Mock data - 실제로는 API에서 로드
-const mockEventNames = [
-  'Complete Order',
-  'Login',
-  'Page View', 
-  'Product Viewed',
-  'Add to Cart',
-  'Sign Up'
-];
+// Real event names loaded from API (removed hardcoding)
 
 const mockUserProperties = [
   { name: 'name', type: 'string' },
@@ -50,6 +43,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   trigger
 }) => {
   const [activeTab, setActiveTab] = useState('events');
+  
+  // Load real event names from API
+  const { data: eventNames = [], isLoading: isLoadingEvents, error: eventsError } = useEventNames('ws_piehands');
 
   const handleEventSelect = (eventName: string) => {
     console.log('🔧 FilterPanel: Event selected:', eventName);
@@ -156,19 +152,35 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 <div className="text-xs font-medium text-muted-foreground mb-3">
                   Select an event to create filter (default: did event ≥ 1 times in last 30 days)
                 </div>
-                {mockEventNames.map((eventName) => (
-                  <Button
-                    key={eventName}
-                    variant="ghost"
-                    className="w-full justify-start h-8 text-sm"
-                    onClick={() => {
-                      console.log('🔧 Event button clicked:', eventName);
-                      handleEventSelect(eventName);
-                    }}
-                  >
-                    {eventName}
-                  </Button>
-                ))}
+                
+                {isLoadingEvents ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading events...</span>
+                  </div>
+                ) : eventsError ? (
+                  <div className="text-center py-4 text-sm text-destructive">
+                    Failed to load events
+                  </div>
+                ) : eventNames.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    No events found. Track some user events first.
+                  </div>
+                ) : (
+                  eventNames.map((eventName: string) => (
+                    <Button
+                      key={eventName}
+                      variant="ghost"
+                      className="w-full justify-start h-8 text-sm"
+                      onClick={() => {
+                        console.log('🔧 Event button clicked:', eventName);
+                        handleEventSelect(eventName);
+                      }}
+                    >
+                      {eventName}
+                    </Button>
+                  ))
+                )}
               </TabsContent>
               
               <TabsContent value="properties" className="mt-0 space-y-2">
