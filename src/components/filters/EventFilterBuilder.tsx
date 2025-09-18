@@ -83,6 +83,9 @@ export const EventFilterBuilder: React.FC<EventFilterBuilderProps> = ({
   onUpdate,
   onRemove
 }) => {
+  // Load real event names for the dropdown
+  const { data: eventNames = [] } = useEventNames('ws_piehands');
+  
   const [eventProperties, setEventProperties] = useState<EventPropertyFilterQuery[]>(
     filter.eventProperties || []
   );
