@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlusCircle, Loader2, User as UserIcon, Mail, Hash, Clock } from 'lucide-react';
+import { EventFeedGrouped } from '../components/EventFeedGrouped';
 import type { User, Event } from '../types';
 
 const PropertyTableRow: React.FC<{ propKey: string; propValue: unknown; userId: string; }> = ({ propKey, propValue, userId }) => {
@@ -89,19 +90,94 @@ export const UserDetailPage = () => {
   if (error) return <div className="p-8 text-destructive">Error: {error.message}</div>;
   if (!user) return <div className="p-8">User not found.</div>;
 
-  const userName = (user.properties as { name?: string })?.name;
+  const userName = (user.properties as { name?: string })?.name || 'Anonymous User';
   const userEmail = (user.properties as { email?: string })?.email;
-  const userTitle = userName ? `${userName} (${userEmail || 'No Email'})` : userEmail || 'Anonymous User';
+  const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+  };
+
+  const getEmailStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800 border-green-200';
+      case 'bounced': return 'bg-red-100 text-red-800 border-red-200';
+      case 'unsubscribed': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6 pb-4 border-b">
-        <div>
-          <h1 className="text-3xl font-bold">{userTitle}</h1>
-          <Badge variant={user.distinctId ? 'secondary' : 'outline'}>
-            {user.distinctId ? `Identified (${user.distinctId})` : 'Unidentified'}
-          </Badge>
-        </div>
+      {/* Mixpanel-style Profile Header */}
+      <div className="mb-8">
+        <Card className="border-0 shadow-none bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-6">
+              {/* Profile Avatar */}
+              <Avatar className="h-20 w-20 border-4 border-white shadow-lg">
+                <AvatarImage src={userEmail ? `https://www.gravatar.com/avatar/${btoa(userEmail).replace(/=/g, '')}?d=mp&s=80` : undefined} alt={userName} />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl font-bold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              
+              {/* Profile Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-3 mb-3">
+                  <h1 className="text-2xl font-bold text-gray-900 truncate">{userName}</h1>
+                  <Badge 
+                    variant="outline" 
+                    className={`px-3 py-1 text-xs font-medium border ${getEmailStatusColor(user.emailStatus)}`}
+                  >
+                    {user.emailStatus}
+                  </Badge>
+                </div>
+                
+                {/* Read-only Profile Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                  {/* Email */}
+                  {userEmail && (
+                    <div className="flex items-center space-x-2 text-gray-600">
+                      <Mail className="h-4 w-4 flex-shrink-0" />
+                      <span className="font-mono truncate">{userEmail}</span>
+                    </div>
+                  )}
+                  
+                  {/* Distinct ID */}
+                  {user.distinctId && (
+                    <div className="flex items-center space-x-2 text-gray-600">
+                      <Hash className="h-4 w-4 flex-shrink-0" />
+                      <span className="font-mono">{user.distinctId}</span>
+                    </div>
+                  )}
+                  
+                  {/* Updated At */}
+                  <div className="flex items-center space-x-2 text-gray-600">
+                    <Clock className="h-4 w-4 flex-shrink-0" />
+                    <span>Updated {formatDateTime(user.updatedAt)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -159,30 +235,15 @@ export const UserDetailPage = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Event Feed</CardTitle>
+              <CardTitle className="flex items-center space-x-2">
+                <span>Activity Feed</span>
+                <Badge variant="outline" className="text-xs">
+                  {user.events?.length || 0} events
+                </Badge>
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              {user.events && user.events.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
-                  {user.events.map((event: Event) => (
-                    <AccordionItem value={event.id} key={event.id}>
-                      <AccordionTrigger>
-                        <div className="flex justify-between w-full pr-4">
-                          <span>{event.name}</span>
-                          <span className="text-sm text-muted-foreground">{new Date(event.timestamp).toLocaleString()}</span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <pre className="text-xs font-mono bg-muted p-4 rounded-md overflow-x-auto">
-                          {JSON.stringify(event.properties, null, 2)}
-                        </pre>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <p className="text-muted-foreground">No events found for this user.</p>
-              )}
+            <CardContent className="max-h-[600px] overflow-y-auto">
+              <EventFeedGrouped events={user.events || []} />
             </CardContent>
           </Card>
         </div>
