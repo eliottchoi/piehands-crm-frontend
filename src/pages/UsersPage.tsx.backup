@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUsers, useUploadUsersCsv } from '../hooks/useUsers';
 import { useInView } from 'react-intersection-observer';
+// import { useUrlState } from '../hooks/useUrlState'; // Removed to fix infinite loop
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/Modal';
 import { FileUpload } from '@/components/FileUpload';
@@ -13,10 +14,6 @@ import { TableSkeleton } from '../components/TableSkeleton';
 import { CohortSaveModal } from '../components/CohortSaveModal';
 import { applyAllFilters } from '../utils/filterLogic';
 import type { User } from '../types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Upload, Loader2 } from 'lucide-react';
 
 interface ColumnConfig {
   id: string;
@@ -25,6 +22,10 @@ interface ColumnConfig {
   visible: boolean;
   width?: number;
 }
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Upload, Loader2 } from 'lucide-react';
 
 interface FilterQuery {
   id: string;
@@ -36,16 +37,18 @@ interface FilterQuery {
 export const UsersPage = () => {
   const navigate = useNavigate();
   
-  // Local state
+  // Simple local state (URL sync removed to fix infinite loop)
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterQuery[]>([]);
   const [isCohortModalOpen, setIsCohortModalOpen] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<string>('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // Build API query parameters with search
+  const apiParams = useMemo(() => ({
+    workspaceId: 'ws_piehands',
+    search: searchTerm.trim() || undefined,
+    // TODO: Add filters to API params when backend supports it
+  }), [searchTerm]);
 
-  // API call with search
   const { 
     data, 
     error, 
@@ -55,130 +58,42 @@ export const UsersPage = () => {
     isFetchingNextPage, 
     status,
     refetch
-  } = useUsers('ws_piehands', searchTerm.trim() || undefined);
+  } = useUsers(apiParams.workspaceId, apiParams.search);
   
+  // Modal and upload state
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const uploadMutation = useUploadUsersCsv();
   const { ref, inView } = useInView();
-
-  // Column management
-  const savedWidths = JSON.parse(localStorage.getItem('userTableColumnWidths') || '{}');
+  
+  // Simple local state (URL sync removed to fix infinite loop)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<FilterQuery[]>([]);
+  const [isCohortModalOpen, setIsCohortModalOpen] = useState(false);
+  
+  // Column management state
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // Default columns
   const availableColumns: ColumnConfig[] = [
-    { id: 'name', name: 'Name', type: 'string', visible: true, width: savedWidths.name || 200 },
-    { id: 'email', name: 'Email', type: 'string', visible: true, width: savedWidths.email || 180 },
-    { id: 'distinctId', name: 'Distinct ID', type: 'string', visible: true, width: savedWidths.distinctId || 120 },
-    { id: 'emailStatus', name: 'Email Status', type: 'string', visible: true, width: savedWidths.emailStatus || 100 },
-    { id: 'level', name: 'Level', type: 'string', visible: false, width: savedWidths.level || 80 },
-    { id: 'createdAt', name: 'Created At', type: 'date', visible: false, width: savedWidths.createdAt || 120 },
-    { id: 'updatedAt', name: 'Updated At', type: 'date', visible: false, width: savedWidths.updatedAt || 120 },
+    { id: 'name', name: 'Name', type: 'string', visible: true },
+    { id: 'email', name: 'Email', type: 'string', visible: true },
+    { id: 'distinctId', name: 'Distinct ID', type: 'string', visible: true },
+    { id: 'emailStatus', name: 'Email Status', type: 'string', visible: true },
+    { id: 'level', name: 'Level', type: 'string', visible: false },
+    { id: 'createdAt', name: 'Created At', type: 'date', visible: false },
+    { id: 'updatedAt', name: 'Updated At', type: 'date', visible: false },
   ];
   
-  const [visibleColumns, setVisibleColumns] = useState<ColumnConfig[]>(() => {
-    const saved = localStorage.getItem('userTableColumns');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.warn('Failed to parse saved columns:', e);
-      }
-    }
-    return availableColumns.filter(col => col.visible);
-  });
+  const [visibleColumns, setVisibleColumns] = useState<ColumnConfig[]>(
+    availableColumns.filter(col => col.visible)
+  );
 
-  // Refetch when search changes (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm.trim()) {
-        refetch();
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm, refetch]);
-
-  // Smart infinite scroll - pause when filtering
-  const isActivelyFiltering = filters.length > 0 || searchTerm.trim().length > 0;
+  // Remove all URL state sync to fix infinite loop
+  // TODO: Re-implement URL state management with proper debouncing later
   
-  useEffect(() => {
-    if (inView && hasNextPage && !isFetching && !isActivelyFiltering) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, isFetching, fetchNextPage, isActivelyFiltering]);
-
-  // Process users
-  const displayUsers = useMemo(() => {
-    const allUsersFlat = data?.pages?.flatMap(page => page.users) || [];
-    const uniqueUsers = allUsersFlat.filter((user, index, self) => 
-      index === self.findIndex(u => u.id === user.id)
-    );
-    
-    // Apply client-side filters when needed (until backend supports filters)
-    if (filters.length > 0) {
-      return applyAllFilters(uniqueUsers, filters);
-    }
-    
-    return uniqueUsers;
-  }, [data, filters]);
-
-  // Apply sorting
-  const sortedUsers = useMemo(() => {
-    if (!sortBy) return displayUsers;
-    
-    return [...displayUsers].sort((a, b) => {
-      let aVal: any, bVal: any;
-      
-      if (sortBy === 'name') {
-        aVal = (a.properties as any)?.name || '';
-        bVal = (b.properties as any)?.name || '';
-      } else if (sortBy === 'email') {
-        aVal = (a.properties as any)?.email || '';
-        bVal = (b.properties as any)?.email || '';
-      } else {
-        aVal = (a as any)[sortBy] || '';
-        bVal = (b as any)[sortBy] || '';
-      }
-      
-      if (sortOrder === 'asc') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      } else {
-        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-      }
-    });
-  }, [displayUsers, sortBy, sortOrder]);
-
-  const totalUserCount = displayUsers.length;
-  const filteredUserCount = displayUsers.length;
-
-  // Event handlers
-  const handleFileSelect = (file: File) => {
-    uploadMutation.mutate({ workspaceId: 'ws_piehands', file });
-    setIsModalOpen(false);
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUsers.length === displayUsers.length) {
-      setSelectedUsers([]);
-    } else {
-      setSelectedUsers(displayUsers.map(user => user.id));
-    }
-  };
-  
-  const handleSelectUser = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
-  };
-  
-  const handleSort = (columnId: string) => {
-    if (sortBy === columnId) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(columnId);
-      setSortOrder('asc');
-    }
-  };
-
-  // Helper functions
+  // Helper functions for dynamic table rendering
   const getCellTooltip = (user: User, columnId: string): string => {
     switch (columnId) {
       case 'name':
@@ -278,8 +193,102 @@ export const UsersPage = () => {
         );
     }
   };
+  
+  // Server-side filtered users (no unnecessary client filtering)
+  const displayUsers = useMemo(() => {
+    const allUsersFlat = data?.pages?.flatMap(page => page.users) || [];
+    
+    // Remove duplicates by ID to prevent key conflicts
+    const uniqueUsers = allUsersFlat.filter((user, index, self) => 
+      index === self.findIndex(u => u.id === user.id)
+    );
+    
+    // Apply client-side filters ONLY when we have filters (temporary until backend supports filters)
+    if (filters.length > 0) {
+      console.log('🔧 Applying client-side filters to', uniqueUsers.length, 'users (temporary)');
+      const filtered = applyAllFilters(uniqueUsers, filters);
+      console.log('🔧 Filter result:', filtered.length, 'users match');
+      return filtered;
+    }
+    
+    return uniqueUsers;
+  }, [data, filters]);
 
-  // Loading state
+  // Get total count from current data (backend will provide totalCount later)
+  const totalUserCount = displayUsers.length;
+  const filteredUserCount = displayUsers.length;
+  
+  // Show message when filtering is active
+  const isActivelyFiltering = filters.length > 0 || searchTerm.trim().length > 0;
+  
+  // Bulk actions  
+  const handleSelectAll = () => {
+    if (selectedUsers.length === displayUsers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(displayUsers.map(user => user.id));
+    }
+  };
+  
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+  
+  // Column sorting
+  const handleSort = (columnId: string) => {
+    if (sortBy === columnId) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(columnId);
+      setSortOrder('asc');
+    }
+  };
+  
+  // Apply sorting to display users
+  const sortedUsers = useMemo(() => {
+    if (!sortBy) return displayUsers;
+    
+    return [...displayUsers].sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      if (sortBy === 'name') {
+        aVal = (a.properties as any)?.name || '';
+        bVal = (b.properties as any)?.name || '';
+      } else if (sortBy === 'email') {
+        aVal = (a.properties as any)?.email || '';
+        bVal = (b.properties as any)?.email || '';
+      } else {
+        aVal = (a as any)[sortBy] || '';
+        bVal = (b as any)[sortBy] || '';
+      }
+      
+      if (sortOrder === 'asc') {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      } else {
+        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+      }
+    });
+  }, [displayUsers, sortBy, sortOrder]);
+
+  // Smart infinite scroll - pause when filtering is active
+  useEffect(() => {
+    // Don't auto-load more when user is actively filtering
+    const isActivelyFiltering = filters.length > 0 || searchTerm.trim().length > 0;
+    
+    if (inView && hasNextPage && !isFetching && !isActivelyFiltering) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetching, fetchNextPage, filters.length, searchTerm]);
+
+  const handleFileSelect = (file: File) => {
+    uploadMutation.mutate({ workspaceId: 'ws_piehands', file });
+    setIsModalOpen(false);
+  };
+
   if (status === 'pending') return <TableSkeleton rows={15} columns={4} />;
   if (status === 'error') return <div className="p-8 text-destructive">Error: {error.message}</div>;
 
@@ -290,7 +299,7 @@ export const UsersPage = () => {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">Users</h1>
           <p className="text-lg text-muted-foreground/80">
-            Advanced user management with server-side search and filtering.
+            View and manage all users in your workspace with advanced filtering.
           </p>
         </div>
         <Button size="lg" onClick={() => setIsModalOpen(true)} className="shrink-0">
@@ -299,7 +308,7 @@ export const UsersPage = () => {
         </Button>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar - width:100% */}
       <div className="w-full">
         <UserSearchBar 
           onSearchChange={setSearchTerm}
@@ -341,7 +350,6 @@ export const UsersPage = () => {
         />
       </div>
       
-      {/* Import Modal */}
       <Modal 
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
@@ -350,17 +358,21 @@ export const UsersPage = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload a CSV file to bulk-import users into your workspace.
+            Upload a CSV file to bulk-import users into your workspace. The file should contain columns for user properties like name, email, and other custom fields.
           </p>
+          <div className="p-4 bg-muted/20 rounded-lg border-l-4 border-primary">
+            <p className="text-xs font-medium text-foreground mb-1">Supported format:</p>
+            <code className="text-xs bg-background px-2 py-1 rounded font-mono">.csv files</code>
+          </div>
           <FileUpload onFileSelect={handleFileSelect} isUploading={uploadMutation.isPending} />
         </div>
       </Modal>
 
-      {/* Users Table */}
-      <Card className="overflow-hidden">
+      <Card variant="default" className="overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              {/* Checkbox for select all */}
               <TableHead className="w-12">
                 <input
                   type="checkbox"
@@ -370,6 +382,7 @@ export const UsersPage = () => {
                 />
               </TableHead>
               
+              {/* Dynamic columns with sorting */}
               {visibleColumns.map((column) => (
                 <TableHead 
                   key={column.id}
@@ -388,35 +401,36 @@ export const UsersPage = () => {
               ))}
             </TableRow>
           </TableHeader>
-          
           <TableBody>
             {sortedUsers.length > 0 ? (
               sortedUsers.map((user: User, index: number) => (
-                <TableRow 
-                  key={`${user.id}-${index}`}
-                  className="group hover:bg-muted/20"
-                >
-                  <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selectedUsers.includes(user.id)}
-                      onChange={() => handleSelectUser(user.id)}
-                      className="rounded border-border"
-                    />
-                  </TableCell>
-                  
-                  {visibleColumns.map((column) => (
-                    <TableCell 
-                      key={column.id}
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/users/${user.id}`)}
-                      title={getCellTooltip(user, column.id)}
-                    >
-                      {renderCellContent(user, column.id)}
+                  <TableRow 
+                    key={`${user.id}-${index}`}
+                    className="group hover:bg-muted/20"
+                  >
+                    {/* Checkbox */}
+                    <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => handleSelectUser(user.id)}
+                        className="rounded border-border"
+                      />
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))
+                    
+                    {/* Dynamic columns */}
+                    {visibleColumns.map((column) => (
+                      <TableCell 
+                        key={column.id}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/users/${user.id}`)}
+                        title={getCellTooltip(user, column.id)}
+                      >
+                        {renderCellContent(user, column.id)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
             ) : (
               <TableRow>
                 <TableCell colSpan={visibleColumns.length + 1} className="text-center py-12">
@@ -431,12 +445,16 @@ export const UsersPage = () => {
                     ) : filters.length > 0 ? (
                       <>
                         <div className="text-lg mb-2">No users match your filters</div>
-                        <div className="text-sm">Try adjusting your filter criteria</div>
+                        <div className="text-sm">
+                          Try adjusting your filter criteria
+                        </div>
                       </>
                     ) : (
                       <>
                         <div className="text-lg mb-2">No users found</div>
-                        <div className="text-sm">Import users to get started</div>
+                        <div className="text-sm">
+                          Import users to get started
+                        </div>
                       </>
                     )}
                   </div>
@@ -447,7 +465,6 @@ export const UsersPage = () => {
         </Table>
       </Card>
       
-      {/* Pagination */}
       <div ref={ref} className="flex justify-center items-center py-8">
         {isFetchingNextPage && (
           <div className="flex items-center space-x-2">
@@ -474,6 +491,9 @@ export const UsersPage = () => {
         
         {!hasNextPage && displayUsers.length > 0 && (
           <div className="text-center">
+            <div className="w-8 h-8 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              <div className="w-2 h-2 bg-muted-foreground/40 rounded-full"></div>
+            </div>
             <p className="text-sm text-muted-foreground font-medium">
               {isActivelyFiltering ? 'All matching users loaded' : 'All users loaded'}
             </p>
@@ -487,7 +507,10 @@ export const UsersPage = () => {
         onOpenChange={setIsCohortModalOpen}
         filters={filters}
         onSave={(cohortData: { name: string; description: string; filters: FilterQuery[] }) => {
+          // TODO: Implement actual cohort saving to backend
           console.log('Saving cohort:', cohortData);
+          
+          // Simulate API call
           setTimeout(() => {
             alert(`Cohort "${cohortData.name}" saved successfully!`);
             setIsCohortModalOpen(false);

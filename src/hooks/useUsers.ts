@@ -15,10 +15,16 @@ const getUsers = async ({ workspaceId, pageParam }: { workspaceId: string, pageP
   return response.data;
 };
 
-export const useUsers = (workspaceId: string) => {
+export const useUsers = (workspaceId: string, search?: string) => {
   return useInfiniteQuery<{ users: User[]; nextCursor: string | null }, Error>({
-    queryKey: ['users', workspaceId],
-    queryFn: ({ pageParam }) => getUsers({ workspaceId, pageParam: pageParam as string | undefined }),
+    queryKey: ['users', workspaceId, search],
+    queryFn: ({ pageParam }) => {
+      let url = `/users?workspaceId=${workspaceId}&limit=20`;
+      if (pageParam) url += `&cursor=${pageParam}`;
+      if (search?.trim()) url += `&search=${encodeURIComponent(search)}`;
+      
+      return apiClient.get(url).then(res => res.data);
+    },
     initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!workspaceId,
