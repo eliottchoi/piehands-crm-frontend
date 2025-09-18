@@ -6,12 +6,14 @@ import { FilterPanel } from './FilterPanel';
 import { EventFilterBuilder } from './filters/EventFilterBuilder';
 import { PropertyFilterBuilder } from './filters/PropertyFilterBuilder';
 import { CohortFilterBuilder } from './filters/CohortFilterBuilder';
+import { FilterLogicToggle } from './filters/FilterLogicToggle';
 
 interface FilterQuery {
   id: string;
   type: 'event' | 'property' | 'cohort';
   display: string;
   query: any; // Detailed query object
+  logic?: 'AND' | 'OR'; // Logic operator for this filter
 }
 
 interface UserFilterBarProps {
@@ -21,6 +23,13 @@ interface UserFilterBarProps {
   onFiltersChange: (filters: FilterQuery[]) => void;
   onSaveCohort?: () => void;
 }
+
+// Add logic operators between filters
+const addLogicOperator = (filters: FilterQuery[], index: number, logic: 'AND' | 'OR') => {
+  return filters.map((filter, i) => 
+    i === index + 1 ? { ...filter, logic } : filter
+  );
+};
 
 export const UserFilterBar: React.FC<UserFilterBarProps> = ({
   userCount,
@@ -102,11 +111,16 @@ export const UserFilterBar: React.FC<UserFilterBarProps> = ({
             {filters.map((filter, index) => (
               <div key={filter.id} className="space-y-2">
                 {index > 0 && (
-                  <div className="flex justify-center">
-                    <Badge variant="outline" className="text-xs px-3 py-1 bg-gray-100">
-                      AND
-                    </Badge>
-                  </div>
+                  <FilterLogicToggle
+                    logic={filter.logic || 'AND'}
+                    onToggle={() => {
+                      const currentLogic = filter.logic || 'AND';
+                      const newLogic = currentLogic === 'AND' ? 'OR' : 'AND';
+                      const updatedFilters = addLogicOperator(filters, index - 1, newLogic);
+                      onFiltersChange(updatedFilters);
+                    }}
+                    index={index}
+                  />
                 )}
                 
                 {/* Render appropriate filter builder based on type */}

@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUsers, useUploadUsersCsv } from '../hooks/useUsers';
 import { useInView } from 'react-intersection-observer';
+import { useUrlState } from '../hooks/useUrlState';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/Modal';
 import { FileUpload } from '@/components/FileUpload';
@@ -37,9 +38,26 @@ export const UsersPage = () => {
   const uploadMutation = useUploadUsersCsv();
   const { ref, inView } = useInView();
   
-  // Search and filter state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<FilterQuery[]>([]);
+  // URL-synced search and filter state
+  const { state: urlState, updateState: updateUrlState } = useUrlState();
+  const [searchTerm, setSearchTerm] = useState(urlState.searchTerm);
+  const [filters, setFilters] = useState<FilterQuery[]>(urlState.filters);
+
+  // Sync local state with URL state
+  useEffect(() => {
+    setSearchTerm(urlState.searchTerm);
+    setFilters(urlState.filters);
+  }, [urlState]);
+
+  // Update URL when search term changes
+  useEffect(() => {
+    updateUrlState({ searchTerm });
+  }, [searchTerm, updateUrlState]);
+
+  // Update URL when filters change
+  useEffect(() => {
+    updateUrlState({ filters });
+  }, [filters, updateUrlState]);
   
   // All users from all pages (for client-side filtering)
   const allUsers = useMemo(() => {
