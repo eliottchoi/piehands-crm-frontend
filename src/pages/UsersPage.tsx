@@ -12,6 +12,7 @@ import { ColumnManager } from '../components/ColumnManager';
 import { SearchHighlight } from '../components/SearchHighlight';
 import { TableSkeleton } from '../components/TableSkeleton';
 import { CohortSaveModal } from '../components/CohortSaveModal';
+import { applyAllFilters } from '../utils/filterLogic';
 import type { User } from '../types';
 
 interface ColumnConfig {
@@ -193,7 +194,7 @@ export const UsersPage = () => {
   const filteredUsers = useMemo(() => {
     let result = allUsers;
 
-    // Apply search filter
+    // Apply search filter (will be moved to server-side later)
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
       result = result.filter(user => {
@@ -207,8 +208,12 @@ export const UsersPage = () => {
       });
     }
 
-    // Apply filters (simplified for Phase 1)
-    // TODO: Implement complex filter logic
+    // Apply complex filters using the filter logic engine
+    if (filters.length > 0) {
+      console.log('🔧 Applying filters to', result.length, 'users');
+      result = applyAllFilters(result, filters);
+      console.log('🔧 Filter result:', result.length, 'users match');
+    }
     
     return result;
   }, [allUsers, searchTerm, filters]);

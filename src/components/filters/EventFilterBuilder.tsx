@@ -10,6 +10,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { EventPropertyFilter } from './EventPropertyFilter';
+import { DateRangeSelector } from '../DateRangeSelector';
 
 interface EventPropertyFilterQuery {
   id: string;
@@ -185,22 +186,14 @@ export const EventFilterBuilder: React.FC<EventFilterBuilderProps> = ({
         min="0"
       />
       
-      {/* Date Range */}
-      <Select
-        value={filter.dateRange}
-        onValueChange={(value) => updateField('dateRange', value)}
-      >
-        <SelectTrigger className="w-auto min-w-[120px] h-8 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {dateRangeOptions.map(option => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Date Range - Enhanced */}
+      <div className="min-w-[140px]">
+        <DateRangeSelector
+          value={filter.dateRange}
+          onChange={(value) => updateField('dateRange', value)}
+          className="h-8"
+        />
+      </div>
       
       {/* Remove button */}
       <Button
