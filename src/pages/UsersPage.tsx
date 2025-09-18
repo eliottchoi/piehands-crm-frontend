@@ -8,7 +8,16 @@ import { Modal } from '@/components/Modal';
 import { FileUpload } from '@/components/FileUpload';
 import { UserSearchBar } from '../components/UserSearchBar';
 import { UserFilterBar } from '../components/UserFilterBar';
+import { ColumnManager } from '../components/ColumnManager';
 import type { User } from '../types';
+
+interface ColumnConfig {
+  id: string;
+  name: string;
+  type: 'string' | 'number' | 'date' | 'boolean';
+  visible: boolean;
+  width?: number;
+}
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +51,26 @@ export const UsersPage = () => {
   const { state: urlState, updateState: updateUrlState } = useUrlState();
   const [searchTerm, setSearchTerm] = useState(urlState.searchTerm);
   const [filters, setFilters] = useState<FilterQuery[]>(urlState.filters);
+  
+  // Column management state
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // Default columns
+  const availableColumns: ColumnConfig[] = [
+    { id: 'name', name: 'Name', type: 'string', visible: true },
+    { id: 'email', name: 'Email', type: 'string', visible: true },
+    { id: 'distinctId', name: 'Distinct ID', type: 'string', visible: true },
+    { id: 'emailStatus', name: 'Email Status', type: 'string', visible: true },
+    { id: 'level', name: 'Level', type: 'string', visible: false },
+    { id: 'createdAt', name: 'Created At', type: 'date', visible: false },
+    { id: 'updatedAt', name: 'Updated At', type: 'date', visible: false },
+  ];
+  
+  const [visibleColumns, setVisibleColumns] = useState<ColumnConfig[]>(
+    availableColumns.filter(col => col.visible)
+  );
 
   // Sync local state with URL state
   useEffect(() => {
@@ -56,8 +85,108 @@ export const UsersPage = () => {
 
   // Update URL when filters change
   useEffect(() => {
+    console.log('🔧 UsersPage: Filters changed:', filters);
     updateUrlState({ filters });
   }, [filters, updateUrlState]);
+  
+  // Helper functions for dynamic table rendering
+  const getCellTooltip = (user: User, columnId: string): string => {
+    switch (columnId) {
+      case 'name':
+        return (user.properties as any)?.name || 'Anonymous User';
+      case 'email':
+        return (user.properties as any)?.email || 'No email provided';
+      case 'distinctId':
+        return user.distinctId || 'No distinct ID';
+      case 'emailStatus':
+        return `Email status: ${user.emailStatus}`;
+      case 'level':
+        return (user.properties as any)?.level || 'No level set';
+      case 'createdAt':
+        return `Created: ${new Date(user.createdAt).toLocaleString()}`;
+      case 'updatedAt':
+        return `Updated: ${new Date(user.updatedAt).toLocaleString()}`;
+      default:
+        return '';
+    }
+  };
+  
+  const renderCellContent = (user: User, columnId: string) => {
+    switch (columnId) {
+      case 'name':
+        const userName = (user.properties as any)?.name || 'Anonymous User';
+        const userEmail = (user.properties as any)?.email;
+        const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+        
+        return (
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+              <span className="text-sm font-medium text-primary">{userInitials}</span>
+            </div>
+            <div>
+              <div className="font-medium text-foreground group-hover:text-primary transition-colors">
+                {userName}
+              </div>
+              {userEmail && (
+                <div className="text-sm text-muted-foreground truncate max-w-48">
+                  {userEmail}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      case 'email':
+        return (
+          <span className="font-mono text-sm truncate">
+            {(user.properties as any)?.email || '—'}
+          </span>
+        );
+      
+      case 'distinctId':
+        return (
+          <code className="text-xs bg-muted/30 px-2 py-1 rounded font-mono">
+            {user.distinctId || '—'}
+          </code>
+        );
+      
+      case 'emailStatus':
+        return (
+          <Badge 
+            variant={
+              user.emailStatus === 'active' ? 'default' :
+              user.emailStatus === 'unsubscribed' ? 'secondary' : 'destructive'
+            }
+            className="text-xs"
+          >
+            {user.emailStatus}
+          </Badge>
+        );
+      
+      case 'level':
+        return (
+          <span className="text-sm">
+            {(user.properties as any)?.level || '—'}
+          </span>
+        );
+      
+      case 'createdAt':
+      case 'updatedAt':
+        const date = new Date((user as any)[columnId]);
+        return (
+          <span className="text-sm text-muted-foreground">
+            {date.toLocaleDateString()}
+          </span>
+        );
+      
+      default:
+        return (
+          <span className="text-sm">
+            {JSON.stringify((user.properties as any)?.[columnId] || '—')}
+          </span>
+        );
+    }
+  };
   
   // All users from all pages (for client-side filtering)
   const allUsers = useMemo(() => {
@@ -90,6 +219,59 @@ export const UsersPage = () => {
 
   const totalUserCount = allUsers.length;
   const filteredUserCount = filteredUsers.length;
+  
+  // Bulk actions
+  const handleSelectAll = () => {
+    if (selectedUsers.length === filteredUsers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(filteredUsers.map(user => user.id));
+    }
+  };
+  
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+  
+  // Column sorting
+  const handleSort = (columnId: string) => {
+    if (sortBy === columnId) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(columnId);
+      setSortOrder('asc');
+    }
+  };
+  
+  // Apply sorting to filtered users
+  const sortedUsers = useMemo(() => {
+    if (!sortBy) return filteredUsers;
+    
+    return [...filteredUsers].sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      if (sortBy === 'name') {
+        aVal = (a.properties as any)?.name || '';
+        bVal = (b.properties as any)?.name || '';
+      } else if (sortBy === 'email') {
+        aVal = (a.properties as any)?.email || '';
+        bVal = (b.properties as any)?.email || '';
+      } else {
+        aVal = (a as any)[sortBy] || '';
+        bVal = (b as any)[sortBy] || '';
+      }
+      
+      if (sortOrder === 'asc') {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      } else {
+        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+      }
+    });
+  }, [filteredUsers, sortBy, sortOrder]);
 
   useEffect(() => {
     if (inView && hasNextPage && !isFetching) {
@@ -140,6 +322,31 @@ export const UsersPage = () => {
           console.log('Save as cohort:', filters);
         }}
       />
+
+      {/* Table Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {selectedUsers.length > 0 && (
+            <>
+              <Button variant="outline" size="sm">
+                Export to CSV ({selectedUsers.length})
+              </Button>
+              <Button variant="outline" size="sm">
+                Add to Cohort ({selectedUsers.length})
+              </Button>
+              <Button variant="outline" size="sm">
+                Send Message ({selectedUsers.length})
+              </Button>
+            </>
+          )}
+        </div>
+        
+        <ColumnManager
+          availableColumns={availableColumns}
+          visibleColumns={visibleColumns}
+          onColumnsChange={setVisibleColumns}
+        />
+      </div>
       
       <Modal 
         open={isModalOpen} 
@@ -163,65 +370,68 @@ export const UsersPage = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User Information</TableHead>
-              <TableHead>Distinct ID</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Email Status</TableHead>
+              {/* Checkbox for select all */}
+              <TableHead className="w-12">
+                <input
+                  type="checkbox"
+                  checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                  onChange={handleSelectAll}
+                  className="rounded border-border"
+                />
+              </TableHead>
+              
+              {/* Dynamic columns with sorting */}
+              {visibleColumns.map((column) => (
+                <TableHead 
+                  key={column.id}
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => handleSort(column.id)}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>{column.name}</span>
+                    {sortBy === column.id && (
+                      <span className="text-xs">
+                        {sortOrder === 'asc' ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </div>
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map((user: User) => (
+            {sortedUsers.length > 0 ? (
+              sortedUsers.map((user: User) => (
                   <TableRow 
                     key={user.id} 
-                    className="cursor-pointer group"
-                    onClick={() => navigate(`/users/${user.id}`)}
+                    className="group hover:bg-muted/20"
                   >
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {((user.properties as { name?: string })?.name || 'A')[0].toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                            {(user.properties as { name?: string })?.name || 'Anonymous User'}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {(user.properties as { email?: string })?.email || 'No email provided'}
-                          </div>
-                        </div>
-                      </div>
+                    {/* Checkbox */}
+                    <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => handleSelectUser(user.id)}
+                        className="rounded border-border"
+                      />
                     </TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted/30 px-2 py-1 rounded font-mono">
-                        {user.distinctId || '—'}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      {user.distinctId ? (
-                        <Badge variant="active">Identified</Badge>
-                      ) : (
-                        <Badge variant="inactive">Unidentified</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.emailStatus === 'active' && (
-                        <Badge variant="success">Active</Badge>
-                      )}
-                      {user.emailStatus === 'unsubscribed' && (
-                        <Badge variant="warning">Unsubscribed</Badge>
-                      )}
-                      {user.emailStatus === 'bounced' && (
-                        <Badge variant="error">Bounced</Badge>
-                      )}
-                    </TableCell>
+                    
+                    {/* Dynamic columns */}
+                    {visibleColumns.map((column) => (
+                      <TableCell 
+                        key={column.id}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/users/${user.id}`)}
+                        title={getCellTooltip(user, column.id)}
+                      >
+                        {renderCellContent(user, column.id)}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12">
+                <TableCell colSpan={visibleColumns.length + 1} className="text-center py-12">
                   <div className="text-muted-foreground">
                     {searchTerm ? (
                       <>

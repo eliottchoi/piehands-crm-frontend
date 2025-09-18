@@ -22,7 +22,7 @@ interface FilterPanelProps {
 const mockEventNames = [
   'Complete Order',
   'Login',
-  'Page View',
+  'Page View', 
   'Product Viewed',
   'Add to Cart',
   'Sign Up'
@@ -52,6 +52,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   const [activeTab, setActiveTab] = useState('events');
 
   const handleEventSelect = (eventName: string) => {
+    console.log('🔧 FilterPanel: Event selected:', eventName);
+    
     // 즉시 1차 초안 생성!
     const defaultEventFilter: FilterQuery = {
       id: `event_${Date.now()}`,
@@ -68,7 +70,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
       }
     };
     
+    console.log('🔧 FilterPanel: Calling onAddFilter with:', defaultEventFilter);
     onAddFilter(defaultEventFilter);
+    console.log('🔧 FilterPanel: onAddFilter called successfully');
   };
 
   const handlePropertySelect = (property: typeof mockUserProperties[0]) => {

@@ -45,8 +45,16 @@ export const UserFilterBar: React.FC<UserFilterBarProps> = ({
   };
 
   const addFilter = (filterQuery: FilterQuery) => {
-    onFiltersChange([...filters, filterQuery]);
+    console.log('🔧 UserFilterBar: addFilter called with:', filterQuery);
+    console.log('🔧 UserFilterBar: Current filters before:', filters);
+    
+    const newFilters = [...filters, filterQuery];
+    console.log('🔧 UserFilterBar: New filters after:', newFilters);
+    
+    onFiltersChange(newFilters);
     setIsFilterPanelOpen(false);
+    
+    console.log('🔧 UserFilterBar: Panel closed');
   };
 
   return (
