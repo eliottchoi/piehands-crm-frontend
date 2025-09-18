@@ -3,6 +3,9 @@ import { Plus, Filter, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FilterPanel } from './FilterPanel';
+import { EventFilterBuilder } from './filters/EventFilterBuilder';
+import { PropertyFilterBuilder } from './filters/PropertyFilterBuilder';
+import { CohortFilterBuilder } from './filters/CohortFilterBuilder';
 
 interface FilterQuery {
   id: string;
@@ -87,35 +90,76 @@ export const UserFilterBar: React.FC<UserFilterBarProps> = ({
         </div>
       </div>
 
-      {/* Active Filters */}
+      {/* Active Filters - Enhanced Builder UI */}
       {filters.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-4 bg-muted/20 rounded-lg border">
-          <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
+            <Filter className="h-4 w-4" />
+            <span>Active Filters</span>
+          </div>
           
-          {filters.map((filter, index) => (
-            <div key={filter.id} className="flex items-center space-x-2">
-              {index > 0 && (
-                <Badge variant="outline" className="text-xs px-2 py-1">
-                  AND
-                </Badge>
-              )}
-              
-              <div className="flex items-center space-x-1 bg-background border rounded-md px-3 py-2">
-                <span className="text-sm font-medium">{filter.display}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFilter(filter.id)}
-                  className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <span className="sr-only">Remove filter</span>
-                  ×
-                </Button>
+          <div className="space-y-3">
+            {filters.map((filter, index) => (
+              <div key={filter.id} className="space-y-2">
+                {index > 0 && (
+                  <div className="flex justify-center">
+                    <Badge variant="outline" className="text-xs px-3 py-1 bg-gray-100">
+                      AND
+                    </Badge>
+                  </div>
+                )}
+                
+                {/* Render appropriate filter builder based on type */}
+                {filter.type === 'event' && (
+                  <EventFilterBuilder
+                    filter={filter.query}
+                    onUpdate={(updatedQuery) => {
+                      const updatedFilters = filters.map(f => 
+                        f.id === filter.id 
+                          ? { ...f, query: updatedQuery, display: generateEventDisplay(updatedQuery) }
+                          : f
+                      );
+                      onFiltersChange(updatedFilters);
+                    }}
+                    onRemove={() => removeFilter(filter.id)}
+                  />
+                )}
+                
+                {filter.type === 'property' && (
+                  <PropertyFilterBuilder
+                    filter={filter.query}
+                    onUpdate={(updatedQuery) => {
+                      const updatedFilters = filters.map(f => 
+                        f.id === filter.id 
+                          ? { ...f, query: updatedQuery, display: generatePropertyDisplay(updatedQuery) }
+                          : f
+                      );
+                      onFiltersChange(updatedFilters);
+                    }}
+                    onRemove={() => removeFilter(filter.id)}
+                  />
+                )}
+                
+                {filter.type === 'cohort' && (
+                  <CohortFilterBuilder
+                    filter={filter.query}
+                    onRemove={() => removeFilter(filter.id)}
+                  />
+                )}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
+};
+
+// Helper functions to generate display text
+const generateEventDisplay = (query: any) => {
+  return `who ${query.action} ${query.eventName} ${query.aggregation} ${query.operator} ${query.value} ${query.dateRange}`;
+};
+
+const generatePropertyDisplay = (query: any) => {
+  return `where ${query.propertyName} ${query.operator} ${query.value}`;
 };

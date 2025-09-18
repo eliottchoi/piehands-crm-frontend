@@ -58,10 +58,11 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
       type: 'event',
       display: `who did ${eventName} Total Events ≥ 1 Last 30 days`,
       query: {
+        id: `event_${Date.now()}`,
         eventName,
-        action: 'did',
-        aggregation: 'Total Events',
-        operator: '≥',
+        action: 'did' as const,
+        aggregation: 'Total Events' as const,
+        operator: '≥' as const,
         value: 1,
         dateRange: 'Last 30 days'
       }
@@ -99,6 +100,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
       type: 'property',
       display: `where ${property.name} ${defaultOperator} ${defaultValue}`,
       query: {
+        id: `property_${Date.now()}`,
         propertyName: property.name,
         propertyType: property.type,
         operator: defaultOperator,
