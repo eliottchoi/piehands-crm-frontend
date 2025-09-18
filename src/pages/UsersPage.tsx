@@ -9,6 +9,9 @@ import { FileUpload } from '@/components/FileUpload';
 import { UserSearchBar } from '../components/UserSearchBar';
 import { UserFilterBar } from '../components/UserFilterBar';
 import { ColumnManager } from '../components/ColumnManager';
+import { SearchHighlight } from '../components/SearchHighlight';
+import { TableSkeleton } from '../components/TableSkeleton';
+import { CohortSaveModal } from '../components/CohortSaveModal';
 import type { User } from '../types';
 
 interface ColumnConfig {
@@ -50,6 +53,7 @@ export const UsersPage = () => {
   // Simple local state (URL sync removed to fix infinite loop)
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterQuery[]>([]);
+  const [isCohortModalOpen, setIsCohortModalOpen] = useState(false);
   
   // Column management state
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -71,33 +75,8 @@ export const UsersPage = () => {
     availableColumns.filter(col => col.visible)
   );
 
-  // Sync local state with URL state (prevent infinite loop)
-  useEffect(() => {
-    // Only update if different to prevent loop
-    if (urlState.searchTerm !== searchTerm) {
-      setSearchTerm(urlState.searchTerm);
-    }
-    if (JSON.stringify(urlState.filters) !== JSON.stringify(filters)) {
-      setFilters(urlState.filters);
-    }
-  }, [urlState]); // Remove searchTerm and filters from deps
-
-  // Update URL when search term changes (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      updateUrlState({ searchTerm });
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]); // Remove updateUrlState from deps
-
-  // Update URL when filters change
-  useEffect(() => {
-    console.log('🔧 UsersPage: Filters changed:', filters);
-    const timer = setTimeout(() => {
-      updateUrlState({ filters });
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [filters]); // Remove updateUrlState from deps
+  // Remove all URL state sync to fix infinite loop
+  // TODO: Re-implement URL state management with proper debouncing later
   
   // Helper functions for dynamic table rendering
   const getCellTooltip = (user: User, columnId: string): string => {
@@ -135,11 +114,11 @@ export const UsersPage = () => {
             </div>
             <div>
               <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                {userName}
+                <SearchHighlight text={userName} searchTerm={searchTerm} />
               </div>
               {userEmail && (
                 <div className="text-sm text-muted-foreground truncate max-w-48">
-                  {userEmail}
+                  <SearchHighlight text={userEmail} searchTerm={searchTerm} />
                 </div>
               )}
             </div>
@@ -147,16 +126,18 @@ export const UsersPage = () => {
         );
       
       case 'email':
+        const email = (user.properties as any)?.email || '—';
         return (
           <span className="font-mono text-sm truncate">
-            {(user.properties as any)?.email || '—'}
+            <SearchHighlight text={email} searchTerm={searchTerm} />
           </span>
         );
       
       case 'distinctId':
+        const distinctId = user.distinctId || '—';
         return (
           <code className="text-xs bg-muted/30 px-2 py-1 rounded font-mono">
-            {user.distinctId || '—'}
+            <SearchHighlight text={distinctId} searchTerm={searchTerm} />
           </code>
         );
       
@@ -299,7 +280,7 @@ export const UsersPage = () => {
     setIsModalOpen(false);
   };
 
-  if (status === 'pending') return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  if (status === 'pending') return <TableSkeleton rows={15} columns={4} />;
   if (status === 'error') return <div className="p-8 text-destructive">Error: {error.message}</div>;
 
   return (
@@ -332,10 +313,7 @@ export const UsersPage = () => {
         totalCount={totalUserCount}
         filters={filters}
         onFiltersChange={setFilters}
-        onSaveCohort={() => {
-          // TODO: Implement save cohort functionality
-          console.log('Save as cohort:', filters);
-        }}
+        onSaveCohort={() => setIsCohortModalOpen(true)}
       />
 
       {/* Table Controls */}
@@ -494,6 +472,23 @@ export const UsersPage = () => {
           </div>
         )}
       </div>
+
+      {/* Cohort Save Modal */}
+      <CohortSaveModal
+        isOpen={isCohortModalOpen}
+        onOpenChange={setIsCohortModalOpen}
+        filters={filters}
+        onSave={(cohortData: { name: string; description: string; filters: FilterQuery[] }) => {
+          // TODO: Implement actual cohort saving to backend
+          console.log('Saving cohort:', cohortData);
+          
+          // Simulate API call
+          setTimeout(() => {
+            alert(`Cohort "${cohortData.name}" saved successfully!`);
+            setIsCohortModalOpen(false);
+          }, 1000);
+        }}
+      />
     </div>
   );
 };

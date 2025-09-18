@@ -9,6 +9,15 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { EventPropertyFilter } from './EventPropertyFilter';
+
+interface EventPropertyFilterQuery {
+  id: string;
+  propertyName: string;
+  propertyType: 'string' | 'number' | 'date' | 'boolean';
+  operator: string;
+  value: string;
+}
 
 interface EventFilterQuery {
   id: string;
@@ -18,6 +27,7 @@ interface EventFilterQuery {
   operator: '=' | '≠' | '>' | '≥' | '<' | '≤';
   value: number;
   dateRange: string;
+  eventProperties?: EventPropertyFilterQuery[];
 }
 
 interface EventFilterBuilderProps {
@@ -71,11 +81,26 @@ export const EventFilterBuilder: React.FC<EventFilterBuilderProps> = ({
   onUpdate,
   onRemove
 }) => {
+  const [eventProperties, setEventProperties] = useState<EventPropertyFilterQuery[]>(
+    filter.eventProperties || []
+  );
+
   const updateField = <K extends keyof EventFilterQuery>(
     field: K,
     value: EventFilterQuery[K]
   ) => {
-    onUpdate({ ...filter, [field]: value });
+    const updatedFilter = { ...filter, [field]: value };
+    if (field === 'eventName') {
+      // Reset event properties when event changes
+      updatedFilter.eventProperties = [];
+      setEventProperties([]);
+    }
+    onUpdate(updatedFilter);
+  };
+
+  const handleEventPropertiesChange = (newProperties: EventPropertyFilterQuery[]) => {
+    setEventProperties(newProperties);
+    onUpdate({ ...filter, eventProperties: newProperties });
   };
 
   return (
@@ -186,6 +211,23 @@ export const EventFilterBuilder: React.FC<EventFilterBuilderProps> = ({
       >
         ×
       </Button>
+      
+      {/* Event Properties Section */}
+      <EventPropertyFilter
+        eventName={filter.eventName}
+        properties={eventProperties}
+        onAddProperty={(property: EventPropertyFilterQuery) => handleEventPropertiesChange([...eventProperties, property])}
+        onUpdateProperty={(propertyId: string, updatedProperty: EventPropertyFilterQuery) => {
+          const updated = eventProperties.map(p => 
+            p.id === propertyId ? updatedProperty : p
+          );
+          handleEventPropertiesChange(updated);
+        }}
+        onRemoveProperty={(propertyId: string) => {
+          const updated = eventProperties.filter(p => p.id !== propertyId);
+          handleEventPropertiesChange(updated);
+        }}
+      />
     </div>
   );
 };
