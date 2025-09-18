@@ -1,15 +1,24 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUsers, useUploadUsersCsv } from '../hooks/useUsers';
 import { useInView } from 'react-intersection-observer';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/Modal';
 import { FileUpload } from '@/components/FileUpload';
+import { UserSearchBar } from '../components/UserSearchBar';
+import { UserFilterBar } from '../components/UserFilterBar';
 import type { User } from '../types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, Loader2 } from 'lucide-react';
+
+interface FilterQuery {
+  id: string;
+  type: 'event' | 'property' | 'cohort';
+  display: string;
+  query: any;
+}
 
 export const UsersPage = () => {
   const navigate = useNavigate();
@@ -22,9 +31,47 @@ export const UsersPage = () => {
     isFetchingNextPage, 
     status 
   } = useUsers('ws_piehands');
+  
+  // Modal and upload state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const uploadMutation = useUploadUsersCsv();
   const { ref, inView } = useInView();
+  
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState<FilterQuery[]>([]);
+  
+  // All users from all pages (for client-side filtering)
+  const allUsers = useMemo(() => {
+    return data?.pages?.flatMap(page => page.users) || [];
+  }, [data]);
+
+  // Filtered users based on search and filters
+  const filteredUsers = useMemo(() => {
+    let result = allUsers;
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase();
+      result = result.filter(user => {
+        const name = (user.properties as { name?: string })?.name?.toLowerCase() || '';
+        const email = (user.properties as { email?: string })?.email?.toLowerCase() || '';
+        const distinctId = user.distinctId?.toLowerCase() || '';
+        
+        return name.includes(search) || 
+               email.includes(search) || 
+               distinctId.includes(search);
+      });
+    }
+
+    // Apply filters (simplified for Phase 1)
+    // TODO: Implement complex filter logic
+    
+    return result;
+  }, [allUsers, searchTerm, filters]);
+
+  const totalUserCount = allUsers.length;
+  const filteredUserCount = filteredUsers.length;
 
   useEffect(() => {
     if (inView && hasNextPage && !isFetching) {
@@ -41,7 +88,8 @@ export const UsersPage = () => {
   if (status === 'error') return <div className="p-8 text-destructive">Error: {error.message}</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">Users</h1>
@@ -54,6 +102,26 @@ export const UsersPage = () => {
           Import Users
         </Button>
       </div>
+
+      {/* Search Bar - width:100% */}
+      <div className="w-full">
+        <UserSearchBar 
+          onSearchChange={setSearchTerm}
+          className="w-full"
+        />
+      </div>
+
+      {/* Filter Bar */}
+      <UserFilterBar
+        userCount={filteredUserCount}
+        totalCount={totalUserCount}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onSaveCohort={() => {
+          // TODO: Implement save cohort functionality
+          console.log('Save as cohort:', filters);
+        }}
+      />
       
       <Modal 
         open={isModalOpen} 
@@ -84,9 +152,8 @@ export const UsersPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.pages.map((page, i) => (
-              <Fragment key={i}>
-                {page.users.map((user: User) => (
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user: User) => (
                   <TableRow 
                     key={user.id} 
                     className="cursor-pointer group"
@@ -133,9 +200,37 @@ export const UsersPage = () => {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
-              </Fragment>
-            ))}
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-12">
+                  <div className="text-muted-foreground">
+                    {searchTerm ? (
+                      <>
+                        <div className="text-lg mb-2">No users found</div>
+                        <div className="text-sm">
+                          No users match your search for "{searchTerm}"
+                        </div>
+                      </>
+                    ) : filters.length > 0 ? (
+                      <>
+                        <div className="text-lg mb-2">No users match your filters</div>
+                        <div className="text-sm">
+                          Try adjusting your filter criteria
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-lg mb-2">No users found</div>
+                        <div className="text-sm">
+                          Import users to get started
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
