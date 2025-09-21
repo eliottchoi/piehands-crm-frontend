@@ -11,7 +11,7 @@ import ReactFlow, {
 } from 'reactflow';
 import type { Connection, Edge, Node } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { useCampaign, useUpdateCampaign } from '../hooks/useCampaigns';
+import { useCampaign, useUpdateCampaign, useCampaignStatus } from '../hooks/useCampaigns';
 import { useCampaignAnalytics } from '../hooks/useAnalytics';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ import { EmailSendNode } from '../components/canvas/nodes/EmailSendNode';
 import { Sidebar } from '../components/canvas/Sidebar';
 import { SettingsPanel } from '../components/canvas/SettingsPanel';
 import { Save, Play, Loader2, BarChart3, Mail, Eye, MousePointer, XCircle, CheckCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 const nodeTypes = {
   IMMEDIATE: ImmediateTriggerNode,
@@ -33,6 +34,7 @@ export const CampaignDetailPage = () => {
   const navigate = useNavigate();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { data: campaign, isLoading, error } = useCampaign(id!);
+  const { data: campaignStatus, isLoading: isStatusLoading } = useCampaignStatus(id!);
   const { data: analytics, isLoading: analyticsLoading } = useCampaignAnalytics(id!);
   const updateCampaignMutation = useUpdateCampaign();
   const { screenToFlowPosition } = useReactFlow();
@@ -137,6 +139,25 @@ export const CampaignDetailPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* 🎯 발송 진행 상황 */}
+      {campaign?.status === 'SENDING' && campaignStatus && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign Progress</CardTitle>
+            <CardDescription>Real-time sending status.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                {campaignStatus.processedUsers} / {campaignStatus.totalUsers} users
+              </span>
+              <span className="text-lg font-bold">{campaignStatus.progress}%</span>
+            </div>
+            <Progress value={parseFloat(campaignStatus.progress)} className="w-full" />
+          </CardContent>
+        </Card>
+      )}
 
       {/* 🎯 탭 구조 */}
       <Tabs defaultValue="canvas" className="space-y-6">

@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/axios';
 import type { Campaign, TargetUserGroup } from '../types'; // Assuming Campaign type is defined in types
 
+export interface CampaignStatus {
+  campaignId: string;
+  status: string;
+  totalUsers: number;
+  processedUsers: number;
+  progress: string;
+}
+
 // DTOs should also be in shared types
 type CreateCampaignDto = {
   workspaceId: string;
@@ -78,6 +86,21 @@ export const useUpdateCampaign = () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns', data.workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['campaign', data.id] });
     },
+  });
+};
+
+// Fetch campaign status
+const getCampaignStatus = async (id: string): Promise<CampaignStatus> => {
+  const response = await apiClient.get(`/campaigns/${id}/status`);
+  return response.data;
+};
+
+export const useCampaignStatus = (id: string) => {
+  return useQuery<CampaignStatus, Error>({
+    queryKey: ['campaignStatus', id],
+    queryFn: () => getCampaignStatus(id),
+    enabled: !!id,
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 };
 

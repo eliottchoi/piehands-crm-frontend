@@ -105,17 +105,28 @@ export const UsersPage = () => {
 
   // Process users
   const displayUsers = useMemo(() => {
-    const allUsersFlat = data?.pages?.flatMap(page => page.users) || [];
-    const uniqueUsers = allUsersFlat.filter((user, index, self) => 
-      index === self.findIndex(u => u.id === user.id)
-    );
-    
-    // Apply client-side filters when needed (until backend supports filters)
-    if (filters.length > 0) {
-      return applyAllFilters(uniqueUsers, filters);
+    try {
+      console.log('Processing users data:', data);
+      const allUsersFlat = data?.pages?.flatMap(page => {
+        console.log('Processing page:', page);
+        return page.users || [];
+      }) || [];
+      console.log('All users flat:', allUsersFlat);
+
+      const uniqueUsers = allUsersFlat.filter((user, index, self) =>
+        index === self.findIndex(u => u.id === user.id)
+      );
+
+      // Apply client-side filters when needed (until backend supports filters)
+      if (filters.length > 0) {
+        return applyAllFilters(uniqueUsers, filters);
+      }
+
+      return uniqueUsers;
+    } catch (err) {
+      console.error('Error processing users:', err);
+      return [];
     }
-    
-    return uniqueUsers;
   }, [data, filters]);
 
   // Apply sorting
@@ -281,7 +292,10 @@ export const UsersPage = () => {
 
   // Loading state
   if (status === 'pending') return <TableSkeleton rows={15} columns={4} />;
-  if (status === 'error') return <div className="p-8 text-destructive">Error: {error.message}</div>;
+  if (status === 'error') {
+    console.error('Users query error:', error);
+    return <div className="p-8 text-destructive">Error: {error.message}</div>;
+  }
 
   return (
     <div className="space-y-6">

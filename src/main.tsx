@@ -5,6 +5,7 @@ import './index.css'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { CampaignsPage } from './pages/CampaignsPage';
 import { CampaignDetailPage } from './pages/CampaignDetailPage';
+import { CampaignJobMonitorPage } from './pages/CampaignJobMonitorPage';
 import { UsersPage } from './pages/UsersPage';
 import { UserDetailPage } from './pages/UserDetailPage';
 import { TemplatesPage } from './pages/TemplatesPage';
@@ -29,6 +30,10 @@ const router = createBrowserRouter([
       {
         path: "campaigns/:id",
         element: <CampaignDetailPage />,
+      },
+      {
+        path: "campaign-monitor",
+        element: <CampaignJobMonitorPage />,
       },
       {
         path: "templates",

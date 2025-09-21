@@ -30,6 +30,12 @@ export const UserSearchBar: React.FC<UserSearchBarProps> = ({
     onSearchChange('');
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className={`relative w-full ${className}`}>
       <div className="relative">
@@ -39,6 +45,7 @@ export const UserSearchBar: React.FC<UserSearchBarProps> = ({
           placeholder={placeholder}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="w-full pl-10 pr-10 h-11 text-base"
         />
         {searchTerm && (

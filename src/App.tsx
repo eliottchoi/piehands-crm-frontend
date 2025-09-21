@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { ReactFlowProvider } from 'reactflow';
 import { Toaster } from 'react-hot-toast';
-import { Megaphone, Users, Mail, Settings, Zap, BarChart3 } from 'lucide-react';
+import { Megaphone, Users, Mail, Settings, Zap, BarChart3, Monitor } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const queryClient = new QueryClient();
@@ -18,6 +18,12 @@ function App() {
       description: 'Create and manage campaigns'
     },
     {
+      title: 'Campaign Monitor',
+      href: '/campaign-monitor',
+      icon: Monitor,
+      description: 'Real-time monitoring'
+    },
+    {
       title: 'Users',
       href: '/users',
       icon: Users,
@@ -25,7 +31,7 @@ function App() {
     },
     {
       title: 'Templates',
-      href: '/templates', 
+      href: '/templates',
       icon: Mail,
       description: 'Email & SMS templates'
     },

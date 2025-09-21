@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "agent-growth-and-ops"
+  },
+  "targets": {
+    "agent-growth-and-ops": {
+      "hosting": {
+        "piehands-crm-app": ["piehands-crm-app"]
+      }
+    }
+  }
+}
