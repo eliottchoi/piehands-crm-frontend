@@ -62,6 +62,15 @@ export const UsersPage = () => {
   const uploadMutation = useUploadUsersCsv();
   const { ref, inView } = useInView();
 
+  const isLoading = isWorkspaceLoading || status === 'pending';
+
+  // Loading and error states should be handled before derived data calculations
+  if (isLoading) return <TableSkeleton rows={15} columns={4} />;
+  if (status === 'error') {
+    console.error('Users query error:', error);
+    return <div className="p-8 text-destructive">Error: {error.message}</div>;
+  }
+
   // Column management
   const savedWidths = JSON.parse(localStorage.getItem('userTableColumnWidths') || '{}');
   const availableColumns: ColumnConfig[] = [
@@ -159,8 +168,6 @@ export const UsersPage = () => {
 
   const totalUserCount = displayUsers.length;
   const filteredUserCount = displayUsers.length;
-
-  const isLoading = isWorkspaceLoading || status === 'pending';
 
   // Event handlers
   const handleFileSelect = (file: File) => {
@@ -293,13 +300,6 @@ export const UsersPage = () => {
         );
     }
   };
-
-  // Loading state
-  if (isLoading) return <TableSkeleton rows={15} columns={4} />;
-  if (status === 'error') {
-    console.error('Users query error:', error);
-    return <div className="p-8 text-destructive">Error: {error.message}</div>;
-  }
 
   return (
     <div className="space-y-6">
