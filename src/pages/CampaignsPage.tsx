@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampaigns, useCreateCampaign } from '../hooks/useCampaigns';
+import { useWorkspace } from '../hooks/useWorkspace';
 import type { Campaign } from '../types';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,14 +22,17 @@ import { PlusCircle, Loader2, Megaphone } from 'lucide-react';
 
 export const CampaignsPage = () => {
   const navigate = useNavigate();
-  const { data: campaigns, isLoading, error } = useCampaigns('ws_piehands');
+  const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
+  const { data: campaigns, isLoading: isCampaignsLoading, error } = useCampaigns();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
   const createCampaignMutation = useCreateCampaign();
 
   const handleCreateCampaign = () => {
+    if (!currentWorkspace) return;
+
     createCampaignMutation.mutate(
-      { workspaceId: 'ws_piehands', name: newCampaignName, createdBy: 'admin' },
+      { name: newCampaignName, createdBy: 'admin' }, // workspaceId is handled by the backend
       {
         onSuccess: (data) => {
           setIsCreateModalOpen(false);
@@ -38,6 +42,8 @@ export const CampaignsPage = () => {
       }
     );
   };
+
+  const isLoading = isWorkspaceLoading || isCampaignsLoading;
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (error) return <div className="p-8 text-destructive">Error: {error.message}</div>;

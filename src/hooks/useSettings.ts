@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../lib/axios';
+import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useWorkspace } from './useWorkspace';
 
 interface WorkspaceSettings {
   sendgrid: {
@@ -17,13 +18,11 @@ interface WorkspaceSettings {
 }
 
 interface UpdateSettingsPayload {
-  workspaceId: string;
   category: string;
   settings: Record<string, any>;
 }
 
 interface TestConnectionPayload {
-  workspaceId: string;
   category: string;
   credentials: Record<string, string>;
 }
@@ -37,30 +36,36 @@ interface TestConnectionResult {
 
 // Settings 조회
 const getSettings = async (workspaceId: string): Promise<WorkspaceSettings> => {
-  const response = await apiClient.get('/settings', { params: { workspaceId } });
+  const response = await api.get('/settings', { params: { workspaceId } });
   return response.data;
 };
 
-export const useSettings = (workspaceId: string) => {
+export const useSettings = () => {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id;
+
   return useQuery<WorkspaceSettings, Error>({
     queryKey: ['settings', workspaceId],
-    queryFn: () => getSettings(workspaceId),
+    queryFn: () => getSettings(workspaceId!),
     enabled: !!workspaceId,
   });
 };
 
 // Settings 업데이트
-const updateSettings = async (payload: UpdateSettingsPayload) => {
-  const response = await apiClient.post('/settings', payload);
+const updateSettings = async (payload: UpdateSettingsPayload & { workspaceId: string }) => {
+  const response = await api.post('/settings', payload);
   return response.data;
 };
 
 export const useUpdateSettings = () => {
   const queryClient = useQueryClient();
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id;
+
   return useMutation<any, Error, UpdateSettingsPayload>({
-    mutationFn: updateSettings,
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['settings', variables.workspaceId] });
+    mutationFn: (variables) => updateSettings({ ...variables, workspaceId: workspaceId! }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['settings', workspaceId] });
       toast.success(`${variables.category} settings updated successfully!`);
     },
     onError: (error) => {
@@ -71,14 +76,17 @@ export const useUpdateSettings = () => {
 };
 
 // 연동 테스트
-const testConnection = async (payload: TestConnectionPayload): Promise<TestConnectionResult> => {
-  const response = await apiClient.post('/settings/test-connection', payload);
+const testConnection = async (payload: TestConnectionPayload & { workspaceId: string }): Promise<TestConnectionResult> => {
+  const response = await api.post('/settings/test-connection', payload);
   return response.data;
 };
 
 export const useTestConnection = () => {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id;
+
   return useMutation<TestConnectionResult, Error, TestConnectionPayload>({
-    mutationFn: testConnection,
+    mutationFn: (variables) => testConnection({ ...variables, workspaceId: workspaceId! }),
     onSuccess: (result) => {
       if (result.success) {
         toast.success(result.message);

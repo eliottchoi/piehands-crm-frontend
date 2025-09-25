@@ -17,7 +17,7 @@ const PropertyTableRow: React.FC<{ propKey: string; propValue: unknown; userId: 
   const [isEditing, setIsEditing] = useState(false);
   const originalValue = JSON.stringify(propValue, null, 2);
   const [currentValue, setCurrentValue] = useState(originalValue);
-  const { mutate: updateUser } = useUpdateUser('ws_piehands', userId);
+  const { mutate: updateUser } = useUpdateUser(userId);
 
   const handleBlur = () => {
     setIsEditing(false);
@@ -63,8 +63,8 @@ export const UserDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   if (!id) return <div>Invalid user ID.</div>;
 
-  const { data: user, isLoading, error } = useUser('ws_piehands', id);
-  const { mutate: addProperty, isPending: isAddingProperty } = useAddUserProperty('ws_piehands', id);
+  const { data: user, isLoading, error } = useUser(id);
+  const { mutate: addProperty, isPending: isAddingProperty } = useAddUserProperty(id);
   const [isAddPropModalOpen, setAddPropModalOpen] = useState(false);
   const [newPropKey, setNewPropKey] = useState('');
   const [newPropValue, setNewPropValue] = useState('');

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Play, Pause, RefreshCw, Monitor, Clock, TrendingUp } from 'lucide-react';
-import { apiClient } from '../lib/axios';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useWorkspace } from '../hooks/useWorkspace';
 
 interface CampaignJobStatus {
   id: string;
@@ -37,25 +38,17 @@ export const CampaignJobMonitorPage: React.FC = () => {
   const [warmupStatus, setWarmupStatus] = useState<WarmupStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { currentWorkspace } = useWorkspace();
 
-  // 🎯 실시간 새로고침 (5초마다)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshData();
-    }, 5000);
+  const refreshData = useCallback(async () => {
+    if (!currentWorkspace) return;
 
-    refreshData(); // 초기 로드
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const refreshData = async () => {
     try {
       setRefreshing(true);
+      const workspaceId = currentWorkspace.id;
 
       // 캠페인 작업 목록 조회
-      const workspaceId = 'default'; // 실제로는 현재 워크스페이스 ID 사용
-      const jobsResponse = await apiClient.get(`/campaign-jobs?workspaceId=${workspaceId}`);
+      const jobsResponse = await api.get(`/campaign-jobs?workspaceId=${workspaceId}`);
       const jobsData = jobsResponse.data;
 
       if (jobsData.success) {
@@ -63,7 +56,7 @@ export const CampaignJobMonitorPage: React.FC = () => {
         const detailedJobs = await Promise.all(
           jobsData.data.map(async (job: any) => {
             try {
-              const progressResponse = await apiClient.get(`/campaign-jobs/${job.id}/progress`);
+              const progressResponse = await api.get(`/campaign-jobs/${job.id}/progress`);
               const progressData = progressResponse.data;
               return progressData.success ? progressData.data : job;
             } catch (error) {
@@ -75,7 +68,7 @@ export const CampaignJobMonitorPage: React.FC = () => {
       }
 
       // Warm-up 상태 조회
-      const warmupResponse = await apiClient.get(`/campaign-jobs/warmup/${workspaceId}/status`);
+      const warmupResponse = await api.get(`/campaign-jobs/warmup/${workspaceId}/status`);
       const warmupData = warmupResponse.data;
       if (warmupData.success) {
         setWarmupStatus(warmupData.data);
@@ -87,11 +80,24 @@ export const CampaignJobMonitorPage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [currentWorkspace]);
+
+  // 🎯 실시간 새로고침 (5초마다)
+  useEffect(() => {
+    if (currentWorkspace) {
+      const interval = setInterval(() => {
+        refreshData();
+      }, 5000);
+
+      refreshData(); // 초기 로드
+
+      return () => clearInterval(interval);
+    }
+  }, [currentWorkspace, refreshData]);
 
   const handleJobControl = async (jobId: string, action: 'pause' | 'resume') => {
     try {
-      const response = await apiClient.put(`/campaign-jobs/${jobId}/control`, { action });
+      const response = await api.put(`/campaign-jobs/${jobId}/control`, { action });
       const data = response.data;
 
       if (data.success) {

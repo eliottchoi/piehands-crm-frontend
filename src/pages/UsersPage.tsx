@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUsers, useUploadUsersCsv } from '../hooks/useUsers';
+import { useWorkspace } from '../hooks/useWorkspace';
 import { useInView } from 'react-intersection-observer';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/Modal';
@@ -35,6 +36,7 @@ interface FilterQuery {
 
 export const UsersPage = () => {
   const navigate = useNavigate();
+  const { currentWorkspace, isLoading: isWorkspaceLoading } = useWorkspace();
   
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,7 +57,7 @@ export const UsersPage = () => {
     isFetchingNextPage, 
     status,
     refetch
-  } = useUsers('ws_piehands', searchTerm.trim() || undefined);
+  } = useUsers(searchTerm.trim() || undefined);
   
   const uploadMutation = useUploadUsersCsv();
   const { ref, inView } = useInView();
@@ -158,9 +160,11 @@ export const UsersPage = () => {
   const totalUserCount = displayUsers.length;
   const filteredUserCount = displayUsers.length;
 
+  const isLoading = isWorkspaceLoading || status === 'pending';
+
   // Event handlers
   const handleFileSelect = (file: File) => {
-    uploadMutation.mutate({ workspaceId: 'ws_piehands', file });
+    uploadMutation.mutate({ file });
     setIsModalOpen(false);
   };
 
@@ -291,7 +295,7 @@ export const UsersPage = () => {
   };
 
   // Loading state
-  if (status === 'pending') return <TableSkeleton rows={15} columns={4} />;
+  if (isLoading) return <TableSkeleton rows={15} columns={4} />;
   if (status === 'error') {
     console.error('Users query error:', error);
     return <div className="p-8 text-destructive">Error: {error.message}</div>;

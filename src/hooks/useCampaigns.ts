@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../lib/axios';
+import api from '@/lib/api';
 import type { Campaign, TargetUserGroup } from '../types'; // Assuming Campaign type is defined in types
+import { useWorkspace } from './useWorkspace';
 
 export interface CampaignStatus {
   campaignId: string;
@@ -12,7 +13,6 @@ export interface CampaignStatus {
 
 // DTOs should also be in shared types
 type CreateCampaignDto = {
-  workspaceId: string;
   name: string;
   createdBy: string;
 };
@@ -28,37 +28,44 @@ interface SendCampaignPayload {
 
 // Fetch all campaigns for a workspace
 const getCampaigns = async (workspaceId: string): Promise<Campaign[]> => {
-  const response = await apiClient.get('/campaigns', { params: { workspaceId } });
+  const response = await api.get('/campaigns', { params: { workspaceId } });
   return response.data;
 };
 
-export const useCampaigns = (workspaceId: string) => {
+export const useCampaigns = () => {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id;
+
   return useQuery<Campaign[], Error>({
     queryKey: ['campaigns', workspaceId],
-    queryFn: () => getCampaigns(workspaceId),
+    queryFn: () => getCampaigns(workspaceId!),
     enabled: !!workspaceId,
   });
 };
 
 // Create a new campaign
 const createCampaign = async (campaignData: CreateCampaignDto): Promise<Campaign> => {
-  const response = await apiClient.post('/campaigns', campaignData);
+  const response = await api.post('/campaigns', campaignData);
   return response.data;
 };
 
 export const useCreateCampaign = () => {
   const queryClient = useQueryClient();
+  const { currentWorkspace } = useWorkspace();
+
   return useMutation<Campaign, Error, CreateCampaignDto>({
     mutationFn: createCampaign,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns', data.workspaceId] });
+    onSuccess: () => {
+      if (currentWorkspace) {
+        queryClient.invalidateQueries({ queryKey: ['campaigns', currentWorkspace.id] });
+      }
     },
   });
 };
 
 // Fetch a single campaign
 const getCampaign = async (id: string): Promise<Campaign> => {
-  const response = await apiClient.get(`/campaigns/${id}`);
+  const response = await api.get(`/campaigns/${id}`);
   return response.data;
 };
 
@@ -74,7 +81,7 @@ export const useCampaign = (id: string) => {
 type UpdateCampaignDto = Partial<Omit<Campaign, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>>;
 
 const updateCampaign = async ({ id, ...campaignData }: { id: string } & UpdateCampaignDto): Promise<Campaign> => {
-  const response = await apiClient.patch(`/campaigns/${id}`, campaignData);
+  const response = await api.patch(`/campaigns/${id}`, campaignData);
   return response.data;
 };
 
@@ -91,7 +98,7 @@ export const useUpdateCampaign = () => {
 
 // Fetch campaign status
 const getCampaignStatus = async (id: string): Promise<CampaignStatus> => {
-  const response = await apiClient.get(`/campaigns/${id}/status`);
+  const response = await api.get(`/campaigns/${id}/status`);
   return response.data;
 };
 
@@ -106,7 +113,7 @@ export const useCampaignStatus = (id: string) => {
 
 const sendCampaign = async (payload: SendCampaignPayload): Promise<{ message: string }> => {
   const { workspaceId, ...body } = payload;
-  const response = await apiClient.post(`/campaigns/send?workspaceId=${workspaceId}`, body);
+  const response = await api.post(`/campaigns/send?workspaceId=${workspaceId}`, body);
   return response.data;
 };
 

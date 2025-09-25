@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../lib/axios';
+import api from '@/lib/api';
+import { useWorkspace } from './useWorkspace';
 
 interface EmailOverview {
   summary: {
@@ -76,16 +77,18 @@ interface UserEmailHistory {
 
 // 🎯 전체 워크스페이스 이메일 분석
 const getEmailOverview = async (workspaceId: string): Promise<EmailOverview> => {
-  const response = await apiClient.get('/analytics/email-overview', {
+  const response = await api.get('/analytics/email-overview', {
     params: { workspaceId }
   });
   return response.data;
 };
 
-export const useEmailOverview = (workspaceId: string) => {
+export const useEmailOverview = () => {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id;
   return useQuery<EmailOverview, Error>({
     queryKey: ['email-overview', workspaceId],
-    queryFn: () => getEmailOverview(workspaceId),
+    queryFn: () => getEmailOverview(workspaceId!),
     enabled: !!workspaceId,
     refetchInterval: 30000, // 30초마다 자동 새로고침
   });
@@ -93,7 +96,7 @@ export const useEmailOverview = (workspaceId: string) => {
 
 // 🎯 특정 캠페인 분석
 const getCampaignAnalytics = async (campaignId: string): Promise<CampaignAnalytics> => {
-  const response = await apiClient.get(`/analytics/campaigns/${campaignId}`);
+  const response = await api.get(`/analytics/campaigns/${campaignId}`);
   return response.data;
 };
 
@@ -108,7 +111,7 @@ export const useCampaignAnalytics = (campaignId: string) => {
 
 // 🎯 특정 사용자 이메일 히스토리  
 const getUserEmailHistory = async (userId: string): Promise<UserEmailHistory> => {
-  const response = await apiClient.get(`/analytics/users/${userId}/email-history`);
+  const response = await api.get(`/analytics/users/${userId}/email-history`);
   return response.data;
 };
 
@@ -122,16 +125,18 @@ export const useUserEmailHistory = (userId: string) => {
 
 // 🎯 실시간 이메일 활동 피드
 const getRecentActivities = async (workspaceId: string, limit: number = 50) => {
-  const response = await apiClient.get('/analytics/recent-activities', {
+  const response = await api.get('/analytics/recent-activities', {
     params: { workspaceId, limit }
   });
   return response.data;
 };
 
-export const useRecentEmailActivities = (workspaceId: string, limit: number = 50) => {
+export const useRecentEmailActivities = (limit: number = 50) => {
+  const { currentWorkspace } = useWorkspace();
+  const workspaceId = currentWorkspace?.id;
   return useQuery<EmailEvent[], Error>({
     queryKey: ['recent-email-activities', workspaceId, limit],
-    queryFn: () => getRecentActivities(workspaceId, limit),
+    queryFn: () => getRecentActivities(workspaceId!, limit),
     enabled: !!workspaceId,
     refetchInterval: 5000, // 5초마다 자동 새로고침 (실시간 피드)
   });
